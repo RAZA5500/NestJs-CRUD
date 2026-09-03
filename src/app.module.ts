@@ -22,7 +22,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
-        uri: configService.get<string>('MONGO_URI') || 'mongodb://127.0.0.1:27017/NestJs-CRUD',
+        uri: configService.get<string>('MONGO_URI') || process.env.MONGO_URI,
       }),
       inject: [ConfigService],
     }),
