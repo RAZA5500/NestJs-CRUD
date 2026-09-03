@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
+import { JwtService } from '@nestjs/jwt';
 import { vi } from 'vitest';
 
 describe('AuthController', () => {
@@ -8,6 +9,12 @@ describe('AuthController', () => {
 
   const mockAuthService = {
     registerUser: vi.fn(),
+    loginUser: vi.fn(),
+  };
+
+  const mockJwtService = {
+    verifyAsync: vi.fn(),
+    signAsync: vi.fn(),
   };
 
   beforeEach(async () => {
@@ -17,6 +24,10 @@ describe('AuthController', () => {
         {
           provide: AuthService,
           useValue: mockAuthService,
+        },
+        {
+          provide: JwtService,
+          useValue: mockJwtService,
         },
       ],
     }).compile();
