@@ -8,6 +8,7 @@ import { RegisterUserDto } from './dto/regiterUser.dto.js';
 import bcrypt from 'bcryptjs';
 import { JwtService } from '@nestjs/jwt';
 import { LoginUserDto } from './dto/loginUser.dto.js';
+import { Role } from '../user/user.types.js';
 @Injectable()
 export class AuthService {
   constructor(
@@ -30,6 +31,7 @@ export class AuthService {
     const user = await this.userService.createUser({
       ...registerUserDto,
       password: hashPwd,
+      role: Role.Admin,
     });
 
     return {
@@ -37,7 +39,6 @@ export class AuthService {
       firstName: fName,
       lastName: lName,
       email: user.email,
-      password: user.password,
       message: 'Signup succesfull',
     };
   }
@@ -63,12 +64,14 @@ export class AuthService {
     const payload = {
       sub: user._id.toString(),
       email: user.email,
+      role: user.role,
     };
 
     const accessToken = await this.jwtService.signAsync(payload);
 
     return {
       access_token: accessToken,
+      role: user.role,
       message: 'Login successfully',
     };
   }

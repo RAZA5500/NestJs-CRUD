@@ -18,8 +18,11 @@ export class User {
   @Prop({ required: true })
   password: string;
 
-  @Prop({default : Role.user})
+  @Prop({ default: Role.Employee })
   role: string;
+
+  @Prop({ default: false })
+  mustChangePassword: boolean;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

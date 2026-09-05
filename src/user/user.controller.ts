@@ -7,6 +7,7 @@ import {
   Patch,
   Post,
   Put,
+  Request,
   UseGuards,
 } from '@nestjs/common';
 import { UserService } from './user.service.js';
@@ -27,6 +28,20 @@ export class UserController {
   @Get()
   async getAllUsers() {
     return await this.userService.getAllUsers();
+  }
+
+  @Get('me')
+  async getMe(@Request() req: { user: { sub: string } }) {
+    return await this.userService.getUserById(req.user.sub);
+  }
+
+  @Patch('me')
+  async updateMe(
+    @Request() req: { user: { sub: string } },
+    @Body() updateUserDto: UpdateUserDto,
+  ) {
+    const { role: _role, mustChangePassword: _mustChangePassword, ...selfUpdateDto } = updateUserDto;
+    return await this.userService.updateUser(req.user.sub, selfUpdateDto);
   }
 
   @Get(':id')

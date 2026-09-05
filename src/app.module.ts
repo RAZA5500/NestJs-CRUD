@@ -6,6 +6,11 @@ import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { AuthModule } from './auth/auth.module.js';
 import { UserModule } from './user/user.module.js';
+import { EmployeeModule } from './employee/employee.module.js';
+import { LeaveModule } from './leave/leave.module.js';
+import { PayslipModule } from './payslip/payslip.module.js';
+import { AttendanceModule } from './attendance/attendance.module.js';
+import { DashboardModule } from './dashboard/dashboard.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -17,7 +22,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     ObserveModule.forRoot({
       appKey: 'YOUR_APP_KEY',
       appSecret: 'YOUR_APP_SECRET',
-      serviceId: 'crud-nestjs',
+      serviceId: 'server',
     }),
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
@@ -28,6 +33,11 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     }),
     AuthModule,
     UserModule,
+    EmployeeModule,
+    LeaveModule,
+    PayslipModule,
+    AttendanceModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -3,6 +3,7 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { RegisterUserDto } from '../auth/dto/regiterUser.dto.js';
 import { User, UserDocument } from './schemas/user.schema.js';
@@ -20,13 +21,22 @@ export class UserService {
   //   return await this.userModel.findOne({ email }).exec();
   // }
 
-  async createUser(registerUserDto: RegisterUserDto) {
+  async createUser(
+    registerUserDto: RegisterUserDto & {
+      role?: string;
+      mustChangePassword?: boolean;
+    },
+  ) {
     try {
       return await this.userModel.create({
         fName: registerUserDto.fName,
         lName: registerUserDto.lName,
         email: registerUserDto.email,
         password: registerUserDto.password,
+        ...(registerUserDto.role ? { role: registerUserDto.role } : {}),
+        ...(registerUserDto.mustChangePassword
+          ? { mustChangePassword: true }
+          : {}),
       });
     } catch (err: unknown) {
       const e = err as { code?: number };
@@ -71,10 +81,26 @@ export class UserService {
       throw new BadRequestException('Invalid user ID');
     }
 
-    const updateData = { ...updateUserDto };
+    const { currentPassword, ...updateData } = updateUserDto;
+
     if (updateData.password) {
+      if (currentPassword) {
+        const existingUser = await this.userModel.findById(id).exec();
+        if (!existingUser) {
+          throw new NotFoundException('User not found');
+        }
+        const isMatch = await bcrypt.compare(
+          currentPassword,
+          existingUser.password,
+        );
+        if (!isMatch) {
+          throw new UnauthorizedException('Current password is incorrect');
+        }
+      }
+
       const saltRounds = 10;
       updateData.password = await bcrypt.hash(updateData.password, saltRounds);
+      updateData.mustChangePassword = false;
     }
 
     try {
