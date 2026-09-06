@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -15,6 +16,14 @@ import { CreateEmployeeDto } from './dto/createEmployee.dto.js';
 import { UpdateEmployeeDto } from './dto/updateEmployee.dto.js';
 import { UserService } from '../user/user.service.js';
 import { Role } from '../user/user.types.js';
+import {
+  changesLockedFields,
+  DEMO_DELETE_MESSAGE,
+  DEMO_LOCK_MESSAGE,
+  isDemoAccount,
+} from '../user/demo-accounts.js';
+
+const DEMO_LOCKED_FIELDS = ['firstName', 'lastName', 'email'] as const;
 
 @Injectable()
 export class EmployeeService {
@@ -117,6 +126,15 @@ export class EmployeeService {
       throw new NotFoundException('Employee not found');
     }
 
+    // The demo employee keeps its published identity — everything else about
+    // the profile (department, salary, bio…) stays editable.
+    if (
+      isDemoAccount(employee.email) &&
+      changesLockedFields(dto, employee, DEMO_LOCKED_FIELDS)
+    ) {
+      throw new ForbiddenException(DEMO_LOCK_MESSAGE);
+    }
+
     try {
       if (dto.email && dto.email !== employee.email) {
         await this.userService.updateUser(employee.userId.toString(), {
@@ -152,10 +170,18 @@ export class EmployeeService {
       throw new BadRequestException('Invalid employee ID');
     }
 
-    const employee = await this.employeeModel.findByIdAndDelete(id).exec();
+    const employee = await this.employeeModel.findById(id).exec();
     if (!employee) {
       throw new NotFoundException('Employee not found');
     }
+
+    // Checked before anything is removed — the cascade below swallows the user
+    // delete's error, so a guard further down would leave a half-deleted demo.
+    if (isDemoAccount(employee.email)) {
+      throw new ForbiddenException(DEMO_DELETE_MESSAGE);
+    }
+
+    await this.employeeModel.findByIdAndDelete(id).exec();
 
     await Promise.all([
       this.userService.deleteUser(employee.userId.toString()).catch(() => {}),

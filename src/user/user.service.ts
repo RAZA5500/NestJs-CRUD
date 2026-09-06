@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
   UnauthorizedException,
@@ -12,6 +13,14 @@ import { isValidObjectId, Model } from 'mongoose';
 import { LoginUserDto } from '../auth/dto/loginUser.dto.js';
 import { UpdateUserDto } from './dto/updateUser.dto.js';
 import bcrypt from 'bcryptjs';
+import {
+  changesLockedFields,
+  DEMO_DELETE_MESSAGE,
+  DEMO_LOCK_MESSAGE,
+  isDemoAccount,
+} from './demo-accounts.js';
+
+const DEMO_LOCKED_FIELDS = ['fName', 'lName', 'email'] as const;
 
 @Injectable()
 export class UserService {
@@ -83,12 +92,23 @@ export class UserService {
 
     const { currentPassword, ...updateData } = updateUserDto;
 
+    const existingUser = await this.userModel.findById(id).exec();
+    if (!existingUser) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Demo accounts are shared by everyone trying the app — nobody (not even an
+    // admin editing them by id) may rename them or change their credentials.
+    if (
+      isDemoAccount(existingUser.email) &&
+      (updateData.password ||
+        changesLockedFields(updateData, existingUser, DEMO_LOCKED_FIELDS))
+    ) {
+      throw new ForbiddenException(DEMO_LOCK_MESSAGE);
+    }
+
     if (updateData.password) {
       if (currentPassword) {
-        const existingUser = await this.userModel.findById(id).exec();
-        if (!existingUser) {
-          throw new NotFoundException('User not found');
-        }
         const isMatch = await bcrypt.compare(
           currentPassword,
           existingUser.password,
@@ -131,6 +151,15 @@ export class UserService {
   async deleteUser(id: string) {
     if (!isValidObjectId(id)) {
       throw new BadRequestException('Invalid user ID');
+    }
+
+    const existingUser = await this.userModel.findById(id).exec();
+    if (!existingUser) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (isDemoAccount(existingUser.email)) {
+      throw new ForbiddenException(DEMO_DELETE_MESSAGE);
     }
 
     const deletedUser = await this.userModel

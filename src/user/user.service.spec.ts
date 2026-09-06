@@ -3,7 +3,11 @@ import { UserService } from './user.service.js';
 import { getModelToken } from '@nestjs/mongoose';
 import { User } from './schemas/user.schema.js';
 import { vi } from 'vitest';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 
 describe('UserService', () => {
   let service: UserService;
@@ -16,10 +20,23 @@ describe('UserService', () => {
     role: 'user',
   };
 
+  const demoUser = {
+    _id: '507f1f77bcf86cd799439012',
+    fName: 'Demo',
+    lName: 'Admin',
+    email: 'admin@gmail.com',
+    password: 'hashed',
+    role: 'ADMIN',
+  };
+
   const createQueryMock = (resolvedValue: any) => ({
     select: vi.fn().mockReturnValue({
       exec: vi.fn().mockResolvedValue(resolvedValue),
     }),
+  });
+
+  const createExecMock = (resolvedValue: any) => ({
+    exec: vi.fn().mockResolvedValue(resolvedValue),
   });
 
   const mockUserModel = {
@@ -92,15 +109,17 @@ describe('UserService', () => {
     });
 
     it('should throw NotFoundException if user to update does not exist', async () => {
-      mockUserModel.findByIdAndUpdate.mockReturnValue(createQueryMock(null));
+      mockUserModel.findById.mockReturnValue(createExecMock(null));
 
       await expect(
         service.updateUser('507f1f77bcf86cd799439011', { fName: 'Jane' }),
       ).rejects.toThrow(NotFoundException);
+      expect(mockUserModel.findByIdAndUpdate).not.toHaveBeenCalled();
     });
 
     it('should update user successfully and return message with user', async () => {
       const updatedMockUser = { ...mockUser, fName: 'Jane' };
+      mockUserModel.findById.mockReturnValue(createExecMock(mockUser));
       mockUserModel.findByIdAndUpdate.mockReturnValue(
         createQueryMock(updatedMockUser),
       );
@@ -116,6 +135,53 @@ describe('UserService', () => {
     });
   });
 
+  describe('updateUser on a demo account', () => {
+    beforeEach(() => {
+      mockUserModel.findById.mockReturnValue(createExecMock(demoUser));
+    });
+
+    it('should throw ForbiddenException when the name is changed', async () => {
+      await expect(
+        service.updateUser(demoUser._id, { fName: 'Hacked' }),
+      ).rejects.toThrow(ForbiddenException);
+      expect(mockUserModel.findByIdAndUpdate).not.toHaveBeenCalled();
+    });
+
+    it('should throw ForbiddenException when the email is changed', async () => {
+      await expect(
+        service.updateUser(demoUser._id, { email: 'someone@else.com' }),
+      ).rejects.toThrow(ForbiddenException);
+      expect(mockUserModel.findByIdAndUpdate).not.toHaveBeenCalled();
+    });
+
+    it('should throw ForbiddenException when the password is changed', async () => {
+      await expect(
+        service.updateUser(demoUser._id, {
+          currentPassword: '12345678',
+          password: 'newpassword',
+        }),
+      ).rejects.toThrow(ForbiddenException);
+      expect(mockUserModel.findByIdAndUpdate).not.toHaveBeenCalled();
+    });
+
+    it('should allow an update that resends the locked fields unchanged', async () => {
+      mockUserModel.findByIdAndUpdate.mockReturnValue(
+        createQueryMock(demoUser),
+      );
+
+      const result = await service.updateUser(demoUser._id, {
+        fName: demoUser.fName,
+        lName: demoUser.lName,
+        email: demoUser.email,
+      });
+
+      expect(result).toEqual({
+        message: 'User updated successfully',
+        user: demoUser,
+      });
+    });
+  });
+
   describe('deleteUser', () => {
     it('should throw BadRequestException if id is invalid', async () => {
       await expect(service.deleteUser('invalid-id')).rejects.toThrow(
@@ -124,14 +190,25 @@ describe('UserService', () => {
     });
 
     it('should throw NotFoundException if user to delete does not exist', async () => {
-      mockUserModel.findByIdAndDelete.mockReturnValue(createQueryMock(null));
+      mockUserModel.findById.mockReturnValue(createExecMock(null));
 
       await expect(
         service.deleteUser('507f1f77bcf86cd799439011'),
       ).rejects.toThrow(NotFoundException);
+      expect(mockUserModel.findByIdAndDelete).not.toHaveBeenCalled();
+    });
+
+    it('should throw ForbiddenException when the user is a demo account', async () => {
+      mockUserModel.findById.mockReturnValue(createExecMock(demoUser));
+
+      await expect(service.deleteUser(demoUser._id)).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(mockUserModel.findByIdAndDelete).not.toHaveBeenCalled();
     });
 
     it('should delete user and return success message', async () => {
+      mockUserModel.findById.mockReturnValue(createExecMock(mockUser));
       mockUserModel.findByIdAndDelete.mockReturnValue(
         createQueryMock(mockUser),
       );
