@@ -10,6 +10,8 @@ describe('AuthController', () => {
   const mockAuthService = {
     registerUser: vi.fn(),
     loginUser: vi.fn(),
+    refreshTokens: vi.fn(),
+    logout: vi.fn(),
   };
 
   const mockJwtService = {

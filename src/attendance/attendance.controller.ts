@@ -28,6 +28,16 @@ export class AttendanceController {
     return await this.attendanceService.checkOut(req.user);
   }
 
+  @Post('away')
+  async goAway(@Request() req: { user: AuthUser }) {
+    return await this.attendanceService.goAway(req.user);
+  }
+
+  @Post('back')
+  async comeBack(@Request() req: { user: AuthUser }) {
+    return await this.attendanceService.comeBack(req.user);
+  }
+
   @Get('me')
   async getMyAttendance(
     @Request() req: { user: AuthUser },
